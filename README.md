@@ -1,40 +1,30 @@
 # Astok
 
-[![npm](https://img.shields.io/npm/v/stook.svg)](https://www.npmjs.com/package/stook) [![Coverage Status](https://coveralls.io/repos/github/forsigner/stook/badge.svg?branch=master)](https://coveralls.io/github/forsigner/stook?branch=master) [![Minzipped size](https://img.shields.io/bundlephobia/minzip/stook.svg)](https://bundlephobia.com/result?p=stook) [![code style: prettier](https://img.shields.io/badge/code_style-prettier-ff69b4.svg)](https://github.com/prettier/prettier)
+[![npm](https://img.shields.io/npm/v/astok.svg)](https://www.npmjs.com/package/@astok/astore) [![Minzipped size](https://img.shields.io/bundlephobia/minzip/astok.svg)](https://bundlephobia.com/result?p=astok) [![code style: prettier](https://img.shields.io/badge/code_style-prettier-ff69b4.svg)](https://github.com/prettier/prettier)
 
-An asyncable global store management with hook library for React.
+An async global store management hook library for React.
 
-## Documentation
+## Features
 
-The documentation site of stook is hosted at  [https://stook-cn.now.sh](https://stook-cn.now.sh).
+* 🎉 **Extensible**,
+* 📦 **Out of the Box**,
 
-## Quick start
-
-**simplest**
+## Getting started
 
 ```tsx
 import React from 'react'
-import { useStore } from 'stook'
+import { AstokProvider, createStore,useStore } from '@astok/store'
+
+createStore({
+  name: 'Counter',
+  state:{ counter: 0},
+  fetchable: true,
+  effects: (getState, setState, { get }) => ({
+  })
+})
 
 function Counter() {
-  const [count, setCount] = useStore('Counter', 0)
-  return (
-    <div>
-      <p>You clicked {count} times</p>
-      <button onClick={() => setCount(count + 1)}>Click me</button>
-    </div>
-  )
-}
-```
-
-**share state**
-
-```jsx
-import React from 'react'
-import { useStore } from 'stook'
-
-function Counter() {
-  const [count, setCount] = useStore('Counter', 0)
+  const [count, setCount] = useStore('Counter')
   return (
     <div>
       <p>You clicked {count} times</p>
@@ -50,17 +40,28 @@ function Display() {
 
 function App() {
   return (
-    <div>
+    <AstokProvider restful={{}} defautStates={}>
       <Counter />
       <Display />
-    </div>
+    </AstokProvider>
   )
 }
 ```
 
+## Documents
+ intro
+ api
+ examples
+
+## 🎁 Acknowledgements
+  stook
+  use-http
+  react-hookstore
+  icestore
+
 ## License
 
-[MIT License](https://github.com/forsigner/stook/blob/master/LICENSE)
+[MIT License](https://github.com/kayw/astok/blob/master/LICENSE)
 
 
 

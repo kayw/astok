@@ -1,32 +1,24 @@
-import { ReactNode, Dispatch } from 'react'
+import { ReactNode } from 'react'
+import { Draft } from 'immer'
 
-export interface FetchEndpoint {
-  key: string
-  base_url: string
-  headers?: {}
-}
-export type MakeFetchFn = (url: string, options: any) => { get: any; onLoading: any; onError: any }
 export interface AStokContextType {
-  makeFetch?: MakeFetchFn
-  fetchEndpoints?: FetchEndpoint[]
+  inject?: any
 }
 
 export interface AStokProviderProps {
-  restful?: { hook: { makeFetch: MakeFetchFn }; endpoints: FetchEndpoint[] }
-  defaultStates?: { [key: string]: any }
-  storePath?: string
-  pinnedStores?: string[]
+  inject?: any
   children: ReactNode
 }
 
 export type Action<S> = S | ((prevState: S) => S) | ((prevState: S) => void)
 
-export type EffectFn = (...payload: any[]) => any
+export type EffectReducer = (...payload: any[]) => any | Promise<any>
+export type ReducerDraft<S> = (draft: Draft<S>, ...payload: any[]) => any
+export type EffectDraft<S> = (draft: Draft<S>, ...payload: any) => Promise<any>
 
-export type Effects<S> = (
-  getState: () => S,
-  setState: Dispatch<Action<S>>,
-  fetcher?: any,
-) => {
-  [key: string]: EffectFn
+export type Reducers<S> = {
+  [key: string]: ReducerDraft<S>
+}
+export type Effects<S> = {
+  [key: string]: EffectDraft<S>
 }

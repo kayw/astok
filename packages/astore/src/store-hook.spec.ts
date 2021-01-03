@@ -1,5 +1,6 @@
 import { renderHook, act, cleanup } from '@testing-library/react-hooks'
-import { createStore, useStore, getStore, Storage } from './store-hook'
+import useStore from './store-hook'
+import { EffectReducer } from './dtypes'
 
 describe('useStore', () => {
   interface UserState {
@@ -8,92 +9,71 @@ describe('useStore', () => {
   }
   afterEach((): void => {
     cleanup()
-    Storage.stores = {}
   })
-  it('plain state value', () => {
-    createStore({ name: 'COUNTER', state: 0 })
-    const { result } = renderHook(() => useStore('COUNTER'))
-    const [state, setState] = result.current
+  it('plain state value', async () => {
+    const useCounter = useStore({
+      namespace: 'COUNTER',
+      state: 0,
+      reducers: {
+        setCounter(_, counter: number) {
+          return counter
+        },
+      },
+    })
+    const { result } = renderHook(() => useCounter())
+    const [state, dispatch] = result.current
 
     expect(state).toBe(0)
 
     act(() => {
-      setState(1)
+      dispatch.setCounter(1)
     })
     expect(result.current[0]).toBe(1)
-    act(() => {
-      setState(() => 2)
-    })
-    expect(result.current[0]).toBe(2)
   })
 
   it('js object value', () => {
-    createStore<UserState>({ name: 'USER', state: { name: 'bar', key: 'bar2' } })
-    const { result } = renderHook(() => useStore<UserState>('USER'))
+    const useUser = useStore({
+      namespace: 'USER',
+      state: { name: 'bar', key: 'bar2', id: 1, nullObj: null },
+      reducers: {
+        setName(draft, name: string) {
+          draft.name = name
+          draft.id++
+          draft.nullObj = { name: 'not null' }
+        },
+      },
+    })
+    const { result } = renderHook(() => useUser())
 
-    const [state, setState] = result.current
+    const [state, dispatch] = result.current
     expect(state.name).toBe('bar')
 
     act(() => {
-      setState({ ...state, name: 'foo' })
+      dispatch.setName('foo')
     })
     expect(result.current[0].name).toBe('foo')
     expect(result.current[0].key).toBe('bar2')
-
-    //// function
-    //act(() => {
-    //  setState(state => ({ ...state, name: 'fooo' }))
-    //})
-    //expect(result.current[0].name).toBe('fooo')
-
-    // immer
-    act(() => {
-      setState(state => {
-        state.name = 'foooo'
-      })
-    })
-    expect(result.current[0].name).toBe('foooo')
+    expect(result.current[0].id).toBe(2)
+    expect(result.current[0].nullObj?.name).toBe('not null')
   })
 
-  it('use store with effects', () => {
-    createStore({
-      name: 'USER2',
-      state: { name: 'foo', key: 'foo1' },
-      effects: (getState, setState) => ({
-        changeName(name: string) {
-          setState({ ...getState(), name })
-        },
-      }),
-    })
-    const { result } = renderHook(() => useStore('USER2'))
-
-    expect(result.current[0].name).toBe('foo')
-    act(() => {
-      result.current[2].changeName('bar')
-    })
-    expect(result.current[0].name).toBe('bar')
-  })
   it('use store multiple effects no stale state', () => {
-    createStore({
-      name: 'USER2',
+    const useUser = useStore<UserState>({
       state: { name: 'foo', key: 'foo1' },
-      effects: (getState, setState: any) => ({
-        changeName(name: string) {
-          setState({ name })
+      reducers: {
+        changeName(draft, name: string) {
+          draft.name = name
         },
-        resetName() {
-          const prevState = getState()
-          if (prevState.name === 'bar') {
-            setState((state: any) => {
-              state.name = 'foo'
-            })
+        resetName(draft) {
+          if (draft.name === 'bar') {
+            draft.name = 'foo'
           }
         },
-      }),
+      },
     })
-    const { result } = renderHook(() => useStore('USER2'))
+    const { result } = renderHook(() => useUser())
 
-    const { changeName, resetName } = result.current[2]
+    const { changeName, resetName } = result.current[1] as { [key: string]: EffectReducer }
 
     expect(result.current[0].name).toBe('foo')
     act(() => {
@@ -105,37 +85,37 @@ describe('useStore', () => {
     })
     expect(result.current[0].name).toBe('foo')
   })
-})
-
-describe('multiple store', () => {
-  afterEach((): void => {
-    cleanup()
-    Storage.stores = {}
-  })
-  it('getStore in other store effect', () => {
-    createStore({
-      name: 'USER',
-      state: { name: 'foo', key: 'foo1' },
+  it('store async effect with return result', async () => {
+    const useUser = useStore<UserState>({
+      state: { name: 'foo', key: '1' },
+      reducers: {
+        updateKey(draft, newKey) {
+          draft.key = newKey
+        },
+      },
       effects: () => ({
-        changeName(name: string) {
-          const { setState: setUser2State } = getStore('USER1')
-          setUser2State((state: any) => {
-            state.name = name
+        async fetchNewName(draft, name: string) {
+          const changes = await new Promise(resolve => {
+            setTimeout(() => {
+              resolve(`foo => ${name}`)
+            }, 10)
           })
+          draft.name = name
+          return changes
         },
       }),
     })
-    createStore({
-      name: 'USER1',
-      state: { name: 'bar', key: 'bar1' },
+    const { result } = renderHook(() => useUser())
+    const { updateKey, fetchNewName } = result.current[1] as { [key: string]: EffectReducer }
+    let fetchRes: string
+    await act(async () => {
+      fetchRes = await fetchNewName('bar')
     })
-    const { result: res1 } = renderHook(() => useStore('USER'))
-    const { result: res2 } = renderHook(() => useStore('USER1'))
-
-    expect(res1.current[0].name).toBe('foo')
+    expect(fetchRes).toBe('foo => bar')
+    expect(result.current[0].name).toBe('bar')
     act(() => {
-      res1.current[2].changeName('bar2')
+      updateKey('7')
     })
-    expect(res2.current[0].name).toBe('bar2')
+    expect(result.current[0].key).toBe('7')
   })
 })

@@ -4,80 +4,74 @@ import createStore from './store-hook'
 
 const sleep = async (t: number) => new Promise(resolve => setTimeout(resolve, t))
 
-const useTodo = createStore({
-  state: {
-    id: 0,
-    // test async function
-    incId: 0,
-    testNull: null,
-    todos: [
-      {
-        id: 0,
-        content: 'first',
-        status: 'DOING',
-      },
-    ],
+const todoState = {
+  id: 0,
+  // test async function
+  incId: 0,
+  testNull: null,
+  todos: [
+    {
+      id: 0,
+      content: 'first',
+      status: 'DOING',
+    },
+  ],
+  addTodo(content) {
+    this.id++
+    const todo = {
+      id: this.id,
+      content,
+      status: 'DOING',
+    }
+    this.todos.push(todo)
   },
-  reducers: {
-    addTodo(draft, content) {
-      draft.id++
-      const todo = {
-        id: draft.id,
-        content,
-        status: 'DOING',
-      }
-      draft.todos.push(todo)
-    },
-    updateNull(draft) {
-      draft.testNull = { name: 'testname' }
-    },
-    getTodoById(draft, id) {
-      return draft.todos.filter(item => item.id === id)[0]
-    },
-    updateTodo(draft, id, status) {
-      const todo = draft.todos.filter(item => item.id === id)[0] //this.getTodoById(id);
-      if (!todo) return
-      todo.status = status
-    },
+  updateNull() {
+    this.testNull = { name: 'testname' }
   },
-  effects: () => ({
-    async delayIncId(draft) {
-      await sleep(100 * 3)
-      draft.incId++
-      console.log('delayIncId awake')
-    },
-  }),
-})
+  getTodoById(id) {
+    return this.todos.filter(item => item.id === id)[0]
+  },
+  updateTodo(id, status) {
+    const todo = this.getTodoById(id)
+    if (!todo) return
+    todo.status = status
+  },
+  async delayIncId() {
+    await sleep(100 * 3)
+    this.incId++
+  },
+}
+type TodoHook = typeof todoState
+const useTodo = createStore<TodoHook>(todoState)
 
 function Todo() {
-  const [state, dispatch] = useTodo()
+  const todoStore = useTodo()
   const inputEl = useRef(null)
   const handleClick = item => {
     if (item.status === 'DOING') {
-      dispatch.updateTodo(item.id, 'COMPLETED')
+      todoStore.updateTodo(item.id, 'COMPLETED')
     } else if (item.status === 'COMPLETED') {
-      dispatch.updateTodo(item.id, 'DOING')
+      todoStore.updateTodo(item.id, 'DOING')
     }
   }
   const handleAddTodo = () => {
     console.warn('set data within component, should be got console.error : ')
-    //state.todos[0].id = 1000
+    todoStore.todos[0].id = 1000
     const text = inputEl.current?.value
     if (text) {
-      dispatch.addTodo(text)
+      todoStore.addTodo(text)
     }
   }
-  console.log(state)
   return (
     <div>
-      <div data-testid="incid">{state.incId}</div>
-      <div data-testid="testNull">{state.testNull?.name ?? ''}</div>
-      {!dispatch.delayIncId.loading ? <div data-testid="incidfinish" /> : ''}
+      <div data-testid="incid">{todoStore.incId}</div>
+      <div data-testid="testNull">{todoStore.testNull?.name ?? ''}</div>
+      {!todoStore.delayIncId.loading ? <div data-testid="incidfinish" /> : ''}
 
-      <div data-testid="incidloading">{dispatch.delayIncId.loading ? 'loading' : 'completed'}</div>
-      <div data-testid="todocount">{state.todos.length}</div>
+      <div data-testid="incidloading">{todoStore.delayIncId.loading ? 'loading' : 'completed'}</div>
+      <div data-testid="todocount">{todoStore.todos.length}</div>
       <ul data-testid="todolist">
-        {state.todos.map(item => {
+        {todoStore.todos.map(item => {
           return (
             <li key={item.id} onClick={() => handleClick(item)}>
               {item.content}
@@ -87,23 +81,15 @@ function Todo() {
         })}
       </ul>
       <input ref={inputEl} data-testid="todoinput" type="text" />
-      <button type="button" data-testid="todobtn" onClick={() => handleAddTodo()}>
+      <button type="button" data-testid="todobtn" onClick={handleAddTodo}>
         add todo
       </button>
 
-      <button
-        type="button"
-        data-testid="incbtn"
-        onClick={async () => {
-          console.log('async inc btn')
-          await dispatch.delayIncId()
-          console.log('async inc btn waited')
-        }}
-      >
+      <button type="button" data-testid="incbtn" onClick={todoStore.delayIncId}>
         delay inc id
       </button>
 
-      <button type="button" data-testid="nullbtn" onClick={dispatch.updateNull}>
+      <button type="button" data-testid="nullbtn" onClick={todoStore.updateNull}>
         update null
       </button>
     </div>
@@ -129,8 +115,8 @@ describe('todo store', () => {
     // click
     console.log('====== click first todo start.')
     fireEvent.click(todolist.children[0])
-    // expect(todolist.innerHTML).toEqual('<li>first<span>COMPLETED</span></li>');
-    console.log('todolist html', todolist.innerHTML)
+    //expect(todolist.innerHTML).toEqual('<li>first<span>COMPLETED</span></li>')
+    // console.log('todolist html', todolist.innerHTML)
     fireEvent.click(todolist.children[0])
     expect(todolist.innerHTML).toEqual('<li>first<span>DOING</span></li>')
     console.log('====== click first todo end.')

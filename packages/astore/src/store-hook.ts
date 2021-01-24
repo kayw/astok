@@ -1,117 +1,125 @@
 import { useState, useEffect, useContext, Dispatch, SetStateAction } from 'react'
-import { produce, Draft } from 'immer'
-import { Effects, Reducers, EffectReducer } from './dtypes'
 import { AStokContext } from './provider'
 
 type StoreState = { [key: string]: any }
 
-const setLoading = (
-  reducers: { [key: string]: EffectReducer },
-  key: string,
-  loading: boolean,
-  setters: Dispatch<SetStateAction<number>>[],
-) => {
-  Object.assign(reducers[key], { loading })
-  setters.forEach(setState => {
-    setState(Math.random())
-  })
+const isFunction = (fn: any) => typeof fn === 'function'
+//const isUndefined = prop => typeof prop === 'undefined'
+const isObject = (o: any) => Object.prototype.toString.call(o) === '[object Object]'
+const isPromise = (fn: any) => {
+  if (fn instanceof Promise) return true
+  return isObject(fn) && isFunction(fn.then)
+}
+const addProxy = (o: any, handler: ProxyHandler<any>) => {
+  if (Array.isArray(o)) {
+    o.forEach((item, index) => {
+      if (isObject(item)) {
+        o[index] = addProxy(item, handler)
+      }
+    })
+  } else if (isObject(o)) {
+    Object.keys(o).forEach(key => {
+      if (isObject(o[key])) {
+        o[key] = addProxy(o[key], handler)
+      }
+    })
+  } else {
+    return o
+  }
+  // eslint-disable-next-line
+  if (o && o.__isProxy__) return o;
+  return new Proxy(o, handler)
 }
 
-export default function useStore<S = StoreState>(opts: {
-  namespace?: string
-  state: S
-  reducers?: Reducers<S>
-  effects?: (inject?: any) => Effects<S>
-}) {
-  let optState: S = opts.state
-  const setters: Dispatch<SetStateAction<S>>[] = []
-  const loadingSetters: Dispatch<SetStateAction<number>>[] = []
-  const reducerTypeCheckRes = opts.reducers ?? {}
-  type ReducerType = typeof reducerTypeCheckRes
-  const effectTypeCheckRes = opts.effects ? opts.effects() : {}
-  type EffectType = typeof effectTypeCheckRes
-  let dispatch: { [key in keyof (ReducerType | EffectType)]: EffectReducer }
-  function notifyNewState(newState: S) {
-    optState = newState
-    setters.forEach(update => {
-      update(newState)
-    })
+export default function useStore<S = StoreState>(opts: S) {
+  const state: { [key in keyof S]: any } = {} as { [key in keyof S]: any }
+  const reducers: { [key in keyof S]: any } = {} as { [key in keyof S]: any }
+  const setters: Dispatch<SetStateAction<number>>[] = []
+  let storeChanged = false
+  Object.keys(opts).forEach(key => {
+    if (key[0] === '$') {
+      throw new Error(`${key}: staring $ is not allowd in store object.`)
+    }
+    const optKey = key as keyof S // https://stackoverflow.com/questions/59390026/how-to-use-es6-proxy-in-typescript
+    if (isFunction(opts[optKey])) {
+      reducers[optKey] = opts[optKey]
+    } else {
+      state[optKey] = opts[optKey]
+    }
+  })
+  const handler: ProxyHandler<any> = {
+    set(target, prop: string, newValue) {
+      if (prop[0] === '$' || isFunction(newValue)) {
+        target[prop] = newValue
+        return true
+      }
+      // can we get origin caller key ?
+      if (Object.keys(hook).filter(hkkey => hook[hkkey] && hook[hkkey].updating).length === 0) {
+        console.error(
+          'Do not modify data within components, call a method of service to update the data.',
+          `prop:${prop}, value:${newValue}`,
+        )
+      }
+      if (target[prop] !== newValue) {
+        storeChanged = true
+      }
+      target[prop] = addProxy(newValue, handler)
+      return true
+    },
+    get(target, prop) {
+      if (prop === '__isProxy__') return true
+      return target[prop]
+    },
   }
-  function useStoreHook(): [S, { [key in keyof (ReducerType | EffectType)]: EffectReducer }] {
-    const [state, set] = useState(optState)
-    const [, setLoadingState] = useState(0)
+  const hook = addProxy(state, handler)
+  function checkUpdateAndBroadcast() {
+    if (storeChanged) {
+      storeChanged = false
+      setters.forEach(set => set(Date.now()))
+    }
+  }
+  Object.keys(reducers).forEach(key => {
+    hook[key] = (...args: any[]) => {
+      hook[key].updating += 1
+      const promise = reducers[key as keyof S].apply(hook, args)
+      if (!isPromise(promise)) {
+        hook[key].updating -= 1
+        checkUpdateAndBroadcast()
+        return promise
+      }
+      hook[key].loading = true
+      storeChanged = true
+      checkUpdateAndBroadcast()
+      return promise.finally(() => {
+        storeChanged = true
+        hook[key].loading = false
+        hook[key].updating -= 1
+        checkUpdateAndBroadcast()
+      })
+    }
+    hook[key].loading = false
+    hook[key].updating = 0
+  })
+  function ReactStoreHook(): S {
+    const [, set] = useState(0)
     useEffect(() => {
       let setIndex = setters.indexOf(set)
-      let loadingSetIndex = loadingSetters.indexOf(setLoadingState)
       if (setIndex === -1) {
         setters.push(set)
-        setIndex = setters.length - 1
-      }
-      if (loadingSetIndex === -1) {
-        loadingSetters.push(setLoadingState)
-        loadingSetIndex = loadingSetters.length - 1
       }
 
       return () => {
         setters.splice(setIndex, 1)
-        loadingSetters.splice(loadingSetIndex, 1)
       }
     }, [])
     const context = useContext(AStokContext)
-    if (!dispatch) {
-      dispatch = {} as { [key in keyof (ReducerType | EffectType)]: EffectReducer }
-      if (opts.reducers) {
-        Object.entries(opts.reducers).forEach(([reducerKey, reducerFn]) => {
-          dispatch[reducerKey] = (...args: any) => {
-            const newState = produce(state, (draft: Draft<S>) => {
-              const res = reducerFn(draft, ...args)
-              if (res && state === draft) {
-                // to support primitive type immer draft direct return modify
-                return res
-              }
-            })
-            notifyNewState(newState)
-          }
-        })
-        /*
-      const reducerKeys = Object.keys(opts.reducers)
-      for (let i = 0; i < reducerKeys.length; i += 1) {
-        const reducerKey = reducerKeys[i] as keyof R
-        const reducerFn = opts.reducers[reducerKey] as ReducerDraft<S>
-        reducers[reducerKey as keyof (E | R)] = (...args: any) => {
-          const newState = produce(state, (draft: Draft<S>) => {
-            reducerFn(draft, ...args)
-          })
-          notifyNewState(newState)
-        }
-      }
-     */
-      }
-      if (opts.effects) {
-        const effectRes = opts.effects(context.inject)
-        Object.entries(effectRes).forEach(([effectKey, effectFn]) => {
-          console.log(effectKey, effectFn, effectFn.constructor)
-          dispatch[effectKey] = async (...args: any) => {
-            let res: any
-            const newState = await produce(state, async (draft: Draft<S>) => {
-              setLoading(dispatch, effectKey, true, loadingSetters)
-              console.log('effect fn', effectKey)
-              res = await effectFn(draft, ...args)
-              setLoading(dispatch, effectKey, false, loadingSetters)
-              if (draft === state) {
-                // primitive type
-                return res
-              }
-            })
-            console.log('notify ', newState)
-            notifyNewState(newState)
-            return res
-          }
-        })
-      }
+    if (context.inject) {
+      Object.keys(context.inject).forEach(injKey => {
+        hook[`$${injKey}`] = context.inject[injKey]
+      })
     }
-    return [state, dispatch]
+    return hook
   }
 
-  return useStoreHook
+  return ReactStoreHook
 }

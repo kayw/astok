@@ -1,8 +1,10 @@
 {
   "name": "astok-store",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "astok store hook management",
-  "main": "index.js",
+  "main": "dist/index.js",
+  "module": "dist/astok-store.esm.js",
+  "files": ["dist"],
   "scripts": {
     "start": "tsdx watch",
     "build": "tsdx build",
@@ -11,20 +13,7 @@
     "test:cov": "tsdx test --coverage",
     "lint": "tsdx lint"
   },
-  "author": "kayw",
-  "license": "MIT",
-  "devDependencies": {
-    "@testing-library/react": "^10.4.3",
-    "@testing-library/react-hooks": "^3.3.0",
-    "@types/react": "^17.0.0",
-    "react": "^17.0.0",
-    "react-dom": "^17.0.0",
-    "tsdx": "^0.14.1"
-  },
   "peerDependencies": {
     "react": ">=16.9.0"
-  },
-  "dependencies": {
-    "react-test-renderer": "^17.0.1"
   }
 }

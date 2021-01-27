@@ -19,9 +19,7 @@ const addProxy = (o: any, handler: ProxyHandler<any>) => {
     })
   } else if (isObject(o)) {
     Object.keys(o).forEach(key => {
-      if (isObject(o[key])) {
-        o[key] = addProxy(o[key], handler)
-      }
+      o[key] = addProxy(o[key], handler)
     })
   } else {
     return o

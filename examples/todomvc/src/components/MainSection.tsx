@@ -4,10 +4,15 @@ import TodoList from './TodoList'
 import useTodos from '../hooks/todos.hooks'
 
 const MainSection = () => {
-  const { todosCount: todosCountFn, completedCount: ccFn, completeAllTodos, clearCompleted } = useTodos()
+  const {
+    todosCount: todosCountFn,
+    completedCount: ccFn,
+    completeAllTodos,
+    clearCompleted,
+  } = useTodos()
 
-const todosCount = todosCountFn()
-const completedCount = ccFn()
+  const todosCount = todosCountFn()
+  const completedCount = ccFn()
   return (
     <section className="main">
       <React.Fragment>

@@ -46,10 +46,13 @@ describe('useStore', () => {
         this.nullObj = { name: 'not null' }
         this.updates.push(name)
       },
+      pushArray() {
+        this.updates.push('name')
+      },
     })
     const { result } = renderHook(() => useUser())
 
-    const { name, setName } = result.current
+    const { name, setName, pushArray } = result.current
     expect(name).toBe('bar')
 
     act(() => {
@@ -61,6 +64,11 @@ describe('useStore', () => {
     expect(result.current.nullObj?.name).toBe('not null')
     expect(result.current.updates.length).toBe(1)
     expect(result.current.updates[0]).toBe('foo')
+    act(() => {
+      pushArray()
+    })
+    expect(result.current.updates.length).toBe(2)
+    expect(result.current.updates[1]).toBe('name')
   })
 
   it('use store multiple effects no stale state', () => {

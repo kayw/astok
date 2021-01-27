@@ -1,4 +1,4 @@
-import { useStore as createStore } from '../../../../packages/astore/src'
+import { useStore as createStore } from '@astok/store'
 
 export default createStore( {
   visibilityFilter: 'show_all',

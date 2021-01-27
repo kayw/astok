@@ -1,7 +1,7 @@
 import * as React from 'react'
 import TodoItem from './TodoItem'
 import { SHOW_ALL, SHOW_COMPLETED, SHOW_ACTIVE } from '../constants/TodoFilters'
-import useTodos, {Todo } from '../hooks/todos.hooks'
+import useTodos, { Todo } from '../hooks/todos.hooks'
 import useVisibilityFilter from '../hooks/visibilityFilter.hooks'
 
 function getVisibleTodos(todos: Todo[], visibilityFilter: string) {
@@ -26,7 +26,6 @@ const TodoList: React.SFC = () => {
   const { todos } = useTodos()
   const { visibilityFilter } = useVisibilityFilter()
   const visibleTodos = getVisibleTodos(todos, visibilityFilter)
-
   return (
     <ul className="todo-list">
       <React.Fragment>

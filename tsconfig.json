@@ -1,13 +1,12 @@
 {
   "extends": "./tsconfig.build.json",
-  "include": ["packages", "types", "scripts", "example"],
+  "include": ["packages", "types", "scripts"],
   "compilerOptions": {
     "allowJs": false,
     "baseUrl": ".",
-    "typeRoots": ["./node_modules/@types", "./types"],
     "paths": {
-      "@astok/store": ["packages/astore/src"],
-      "$test/*": ["test/*"]
-    }
+      "@astok/store": ["packages/astore/src"]
+    },
+    "typeRoots": ["./node_modules/@types", "./types"]
   }
 }
